@@ -548,16 +548,13 @@ function renderTable() {
         const maxParticipants = Number(e.maxParticipants || 0);
         const currentParticipants = Number(e.currentParticipants || 0);
         const endTime = e.endTime ? ` - ${e.endTime}` : "";
-<<<<<<< Updated upstream
         const progress = getEventProgressState(e);
         const statusDisplay = getStatusDisplay(e, progress);
         const statusClass = "status-" + statusDisplay.cssKey;
-=======
         const inviteChip =
             String(e.viewerInviteStatus || "").toUpperCase() === "PENDING"
                 ? '<span class="table-invite-chip">Invite</span>'
                 : "";
->>>>>>> Stashed changes
 
         const row = document.createElement("tr");
         row.innerHTML = `

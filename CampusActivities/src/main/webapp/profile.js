@@ -435,7 +435,10 @@ const otherTextEl = document.getElementById("otherLocationText");
 if (otherTextEl) otherTextEl.addEventListener("input", updateLocDropdownLabel);
 
 function prefillEditForm(user) {
-    document.getElementById("editInterests").value = user.interests || "";
+    const storedInterests = parseInterests(user.interests).map(function(i) { return i.toLowerCase(); });
+    document.querySelectorAll(".interest-cb").forEach(function(cb) {
+        cb.checked = storedInterests.includes(cb.value);
+    });
     const skillLevel = user.skill_level || user.skillLevel || "beginner";
     const select = document.getElementById("editSkillLevel");
     for (let opt of select.options) {
@@ -465,6 +468,14 @@ function prefillEditForm(user) {
         otherText.value = "";
     }
     updateLocDropdownLabel();
+}
+
+function getSelectedInterests() {
+    const selected = [];
+    document.querySelectorAll(".interest-cb").forEach(function(cb) {
+        if (cb.checked) selected.push(cb.value);
+    });
+    return selected.join(",");
 }
 
 function getSelectedLocations() {
@@ -497,7 +508,7 @@ function submitEditProfile(event) {
     msgEl.className = "edit-msg";
 
     const body = new URLSearchParams({
-        interests: document.getElementById("editInterests").value.trim(),
+        interests: getSelectedInterests(),
         skillLevel: document.getElementById("editSkillLevel").value,
         preferredLocations: getSelectedLocations(),
         securityQuestion: document.getElementById("editSecurityQuestion").value,

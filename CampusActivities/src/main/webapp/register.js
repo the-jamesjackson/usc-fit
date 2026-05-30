@@ -50,7 +50,13 @@ registerForm.addEventListener('submit', function(e) {
     }
     
     const params = new URLSearchParams(new FormData(this));
-    
+
+    // Collect checked interests into a comma-separated value the backend/matching expects.
+    const interests = Array.from(this.querySelectorAll('.interest-cb:checked'))
+        .map(cb => cb.value)
+        .join(',');
+    params.set('interests', interests);
+
     console.log("Sending registration with:", {
         username: params.get('username'),
         email: params.get('email'),

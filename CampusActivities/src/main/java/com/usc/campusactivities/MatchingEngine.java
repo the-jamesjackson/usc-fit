@@ -24,32 +24,48 @@ public class MatchingEngine {
         SKILL_RANK.put("competitive", 2);
     }
 
+    // Neutral availability score (out of 30) when a user hasn't set a schedule:
+    // "unknown" availability gets the benefit of the doubt and sits above a known
+    // schedule conflict (0) but below a genuine overlap (up to 30).
+    private static final int AVAILABILITY_NEUTRAL = 20;
+
     /**
      * Interest overlap — 40 points max, hard filter on zero overlap.
      *
-     * Counts how many of currentUser's interests appear in otherUser's interest list.
-     * Score = (matchingCount / currentUserInterestCount) * 40.
+     * Smaller-set coverage with a concave (square-root) curve: measures how much of
+     * the more focused user's interest list is shared, so a focused user (e.g. basketball
+     * only) is not penalized for matching someone with broader interests. The sqrt curve
+     * gives a meaningful floor for any overlap while still rewarding more.
+     * Score = sqrt(shared / min(countA, countB)) * 40. Symmetric — call once per pair.
      * Returns -1 if there is zero overlap (hard filter).
      */
     public int comparePreferences(User currentUser, User otherUser) {
-        if (currentUser.getInterests() == null || currentUser.getInterests().isBlank()) return -1;
-        if (otherUser.getInterests() == null || otherUser.getInterests().isBlank()) return -1;
+        Set<String> currentInterests = parseInterests(currentUser.getInterests());
+        Set<String> otherInterests   = parseInterests(otherUser.getInterests());
 
-        Set<String> otherInterests = new HashSet<>();
-        for (String i : otherUser.getInterests().split(",")) {
-            otherInterests.add(i.trim().toLowerCase());
-        }
+        if (currentInterests.isEmpty() || otherInterests.isEmpty()) return -1;
 
-        String[] currentInterests = currentUser.getInterests().split(",");
-        int matchCount = 0;
+        int shared = 0;
         for (String i : currentInterests) {
-            if (otherInterests.contains(i.trim().toLowerCase())) matchCount++;
+            if (otherInterests.contains(i)) shared++;
         }
 
-        if (matchCount == 0) return -1;
+        if (shared == 0) return -1;
 
-        double fraction = (double) matchCount / currentInterests.length;
-        return (int) Math.round(fraction * 40);
+        int smaller = Math.min(currentInterests.size(), otherInterests.size());
+        double fraction = (double) shared / smaller;
+        return (int) Math.round(Math.sqrt(fraction) * 40);
+    }
+
+    /** Splits a comma-separated interest string into a normalized, deduplicated set. */
+    private Set<String> parseInterests(String raw) {
+        Set<String> interests = new HashSet<>();
+        if (raw == null || raw.isBlank()) return interests;
+        for (String i : raw.split(",")) {
+            String trimmed = i.trim().toLowerCase();
+            if (!trimmed.isEmpty()) interests.add(trimmed);
+        }
+        return interests;
     }
 
     /**
@@ -58,13 +74,22 @@ public class MatchingEngine {
      * Queries user_availability for both users and finds time overlap across
      * matching days of the week.
      * Score = (totalOverlapMinutes / totalCurrentUserAvailableMinutes) * 30.
-     * Returns 0 if either user has no availability set.
+     * Returns the neutral score if either user has no availability set, so users
+     * who skip the (optional) schedule step aren't penalized as unavailable.
      */
     public int compareAvailability(User currentUser, User otherUser) {
-        Map<String, List<long[]>> currentSlots = fetchAvailability(currentUser.getId());
-        Map<String, List<long[]>> otherSlots   = fetchAvailability(otherUser.getId());
+        return availabilityOverlap(fetchAvailability(currentUser.getId()),
+                                   fetchAvailability(otherUser.getId()));
+    }
 
-        if (currentSlots.isEmpty() || otherSlots.isEmpty()) return 0;
+    /**
+     * Pure availability-overlap computation over pre-fetched slot maps. Kept separate
+     * from the DB fetch so generateMatches can fetch each user's schedule once instead
+     * of re-querying for every candidate in both directions.
+     */
+    private int availabilityOverlap(Map<String, List<long[]>> currentSlots,
+                                    Map<String, List<long[]>> otherSlots) {
+        if (currentSlots.isEmpty() || otherSlots.isEmpty()) return AVAILABILITY_NEUTRAL;
 
         long totalCurrentMinutes = 0;
         long totalOverlapMinutes = 0;
@@ -114,11 +139,13 @@ public class MatchingEngine {
      * Location preference — 10 points max.
      *
      * Awards 10 points if at least one preferred location appears in both users'
-     * comma-separated preferredLocations strings.
+     * comma-separated preferredLocations strings. If either user hasn't set a
+     * preference, awards full points (no penalty) — location is a low-stakes
+     * tiebreaker since all campus facilities are within walking distance.
      */
     public int compareLocation(User currentUser, User otherUser) {
-        if (currentUser.getPreferredLocations() == null || currentUser.getPreferredLocations().isBlank()) return 0;
-        if (otherUser.getPreferredLocations() == null || otherUser.getPreferredLocations().isBlank()) return 0;
+        if (currentUser.getPreferredLocations() == null || currentUser.getPreferredLocations().isBlank()) return 10;
+        if (otherUser.getPreferredLocations() == null || otherUser.getPreferredLocations().isBlank()) return 10;
 
         Set<String> otherLocations = new HashSet<>();
         for (String loc : otherUser.getPreferredLocations().split(",")) {
@@ -150,11 +177,22 @@ public class MatchingEngine {
      * Otherwise returns a value in the range 0–100.
      */
     public int scoreUser(User currentUser, User otherUser) {
-        int prefA = comparePreferences(currentUser, otherUser);
-        if (prefA == -1) return -1;
+        return scoreUser(currentUser, otherUser,
+                         fetchAvailability(currentUser.getId()),
+                         fetchAvailability(otherUser.getId()));
+    }
 
-        int preferenceScore = (prefA + comparePreferences(otherUser, currentUser)) / 2;
-        int availabilityScore = (compareAvailability(currentUser, otherUser) + compareAvailability(otherUser, currentUser)) / 2;
+    /**
+     * Scores a candidate using pre-fetched availability maps to avoid redundant DB queries.
+     */
+    private int scoreUser(User currentUser, User otherUser,
+                          Map<String, List<long[]>> currentSlots,
+                          Map<String, List<long[]>> otherSlots) {
+        int preferenceScore = comparePreferences(currentUser, otherUser);
+        if (preferenceScore == -1) return -1;
+
+        int availabilityScore = (availabilityOverlap(currentSlots, otherSlots)
+                               + availabilityOverlap(otherSlots, currentSlots)) / 2;
 
         int total = preferenceScore
                 + availabilityScore
@@ -177,11 +215,13 @@ public class MatchingEngine {
     public List<UserMatch> generateMatches(User currentUser) {
         if (currentUser.getPenaltyTracked()) return Collections.emptyList();
 
+        Map<String, List<long[]>> currentSlots = fetchAvailability(currentUser.getId());
         List<User> candidates = fetchAllOtherUsers(currentUser);
         List<UserMatch> results = new ArrayList<>();
 
         for (User candidate : candidates) {
-            int score = scoreUser(currentUser, candidate);
+            Map<String, List<long[]>> candidateSlots = fetchAvailability(candidate.getId());
+            int score = scoreUser(currentUser, candidate, currentSlots, candidateSlots);
             if (score >= 30) {
                 results.add(new UserMatch(candidate, score));
             }

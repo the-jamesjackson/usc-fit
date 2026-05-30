@@ -317,13 +317,19 @@ function loadFacilitiesPreview() {
         .then(function (data) {
             if (!data || data.length === 0) return;
             body.innerHTML = data.slice(0, 4).map(function (f) {
-                var rating = Number(f.averageRating || 0);
-                var stars = Math.round(rating);
-                var starStr = "★".repeat(stars) + "☆".repeat(5 - stars);
+                var reviewCount = Number(f.reviewCount || 0);
+                var ratingHtml;
+                if (reviewCount === 0) {
+                    ratingHtml = '<div style="color:#7a7a7a;font-size:12px;font-style:italic;">No reviews yet</div>';
+                } else {
+                    var stars = Math.round(Number(f.averageRating || 0));
+                    var starStr = "★".repeat(stars) + "☆".repeat(5 - stars);
+                    ratingHtml = '<div class="facility-stars">' + starStr + '</div>';
+                }
                 return '<div class="facility-row">' +
                     '<div class="facility-left"><div>' +
                     '<div class="row-title">' + escapeHtmlDash(f.name) + '</div>' +
-                    '<div class="facility-stars">' + starStr + '</div>' +
+                    ratingHtml +
                     '</div></div>' +
                     '<span class="status-pill">Open</span>' +
                     '</div>';

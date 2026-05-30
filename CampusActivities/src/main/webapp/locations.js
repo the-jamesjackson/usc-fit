@@ -7,14 +7,7 @@ const defaultFacilities = [
         shortAddress: "1026 W 34th St",
         coords: [34.02493, -118.28711],
         tags: ["Basketball", "Cardio", "Track", "Weight room", "Racquetball"],
-        openSpots: null,
-        capacity: null,
-        occupancyPercent: null,
-        seedRating: 4.8,
-        seedCount: 10,
-        realAverageRating: 0,
-        realReviewCount: 0,
-        averageRating: 4.8,
+        averageRating: 0,
         reviewCount: 0,
         reviews: []
     },
@@ -26,14 +19,7 @@ const defaultFacilities = [
         shortAddress: "USC Village",
         coords: [34.02590, -118.28595],
         tags: ["Strength", "Weights"],
-        openSpots: null,
-        capacity: null,
-        occupancyPercent: null,
-        seedRating: 4.3,
-        seedCount: 10,
-        realAverageRating: 0,
-        realReviewCount: 0,
-        averageRating: 4.3,
+        averageRating: 0,
         reviewCount: 0,
         reviews: []
     },
@@ -45,14 +31,7 @@ const defaultFacilities = [
         shortAddress: "Lyon Center",
         coords: [34.02442, -118.28745],
         tags: ["Swimming", "8 lanes"],
-        openSpots: null,
-        capacity: null,
-        occupancyPercent: null,
-        seedRating: 4.5,
-        seedCount: 10,
-        realAverageRating: 0,
-        realReviewCount: 0,
-        averageRating: 4.5,
+        averageRating: 0,
         reviewCount: 0,
         reviews: []
     },
@@ -64,14 +43,7 @@ const defaultFacilities = [
         shortAddress: "Health Sciences Campus",
         coords: [34.04892, -118.27017],
         tags: ["Cardio", "Weights"],
-        openSpots: null,
-        capacity: null,
-        occupancyPercent: null,
-        seedRating: 4.0,
-        seedCount: 10,
-        realAverageRating: 0,
-        realReviewCount: 0,
-        averageRating: 4.0,
+        averageRating: 0,
         reviewCount: 0,
         reviews: []
     },
@@ -83,14 +55,7 @@ const defaultFacilities = [
         shortAddress: "PED South",
         coords: [34.02024, -118.28560],
         tags: ["Gym", "Courts"],
-        openSpots: null,
-        capacity: null,
-        occupancyPercent: null,
-        seedRating: 3.7,
-        seedCount: 10,
-        realAverageRating: 0,
-        realReviewCount: 0,
-        averageRating: 3.7,
+        averageRating: 0,
         reviewCount: 0,
         reviews: []
     }
@@ -177,34 +142,6 @@ async function loadFacilities() {
     }, 200);
 }
 
-/**
- * Recompute the displayed averageRating by blending the static seed rating
- * with the real user-submitted reviews:
- *
- *   displayed = (seedRating * seedCount + realAvg * realCount)
- *               / (seedCount + realCount)
- *
- * The seed acts like N virtual reviewers giving the seed rating. The more
- * real reviews come in, the more the displayed rating reflects real
- * opinions rather than the seed.
- */
-function recomputeFacilityRating(facility) {
-    const seedRating = Number(facility.seedRating || 0);
-    const seedCount = Number(facility.seedCount || 0);
-    const realAvg = Number(facility.realAverageRating || 0);
-    const realCount = Number(facility.realReviewCount || 0);
-
-    const totalWeight = seedCount + realCount;
-    if (totalWeight === 0) {
-        facility.averageRating = seedRating;
-    } else {
-        facility.averageRating = (seedRating * seedCount + realAvg * realCount) / totalWeight;
-    }
-
-    // Display the REAL review count to the user (the seed is invisible)
-    facility.reviewCount = realCount;
-}
-
 function mergeBackendData(backendFacilities) {
     if (!backendFacilities || backendFacilities.length === 0) {
         return;
@@ -218,19 +155,10 @@ function mergeBackendData(backendFacilities) {
 
         if (match) {
             match.id = backendFacility.id;
-
-            if (backendFacility.averageRating !== undefined && backendFacility.averageRating !== null) {
-                match.realAverageRating = Number(backendFacility.averageRating || 0);
-            }
-
-            if (backendFacility.reviewCount !== undefined && backendFacility.reviewCount !== null) {
-                match.realReviewCount = Number(backendFacility.reviewCount || 0);
-            }
-
+            match.averageRating = Number(backendFacility.averageRating || 0);
+            match.reviewCount = Number(backendFacility.reviewCount || 0);
             match.reviews = backendFacility.reviews || [];
             match.userReview = backendFacility.userReview || null;
-
-            recomputeFacilityRating(match);
         }
     });
 
@@ -256,8 +184,10 @@ function renderFacilityList() {
                         </div>
 
                         <div class="stars-row">
-                            <div class="star-text">${getStars(facility.averageRating)}</div>
-                            <div class="rating-number">${facility.averageRating.toFixed(1)}</div>
+                            ${facility.reviewCount === 0
+                                ? '<div style="color:#7a7a7a;font-size:13px;font-style:italic;">No reviews yet</div>'
+                                : `<div class="star-text">${getStars(facility.averageRating)}</div>
+                                   <div class="rating-number">${facility.averageRating.toFixed(1)}</div>`}
                         </div>
 
                         <div class="facility-tags">
@@ -309,13 +239,15 @@ function renderDetailPanel() {
 
         <div class="detail-section-title">Ratings</div>
         <div class="metric-card" style="text-align:left;">
-            <div class="star-text" style="font-size:24px;">${getStars(facility.averageRating)}</div>
-            <div style="margin-top:6px; color:#555; font-size:15px;">
-                Average rating: <strong>${facility.averageRating.toFixed(1)} / 5</strong>
-            </div>
-            <div style="margin-top:4px; color:#7a7a7a; font-size:14px;">
-                ${facility.reviewCount} student review${facility.reviewCount === 1 ? "" : "s"}
-            </div>
+            ${facility.reviewCount === 0
+                ? '<div style="color:#7a7a7a; font-size:15px;">No reviews yet — be the first to leave one.</div>'
+                : `<div class="star-text" style="font-size:24px;">${getStars(facility.averageRating)}</div>
+                   <div style="margin-top:6px; color:#555; font-size:15px;">
+                       Average rating: <strong>${facility.averageRating.toFixed(1)} / 5</strong>
+                   </div>
+                   <div style="margin-top:4px; color:#7a7a7a; font-size:14px;">
+                       ${facility.reviewCount} student review${facility.reviewCount === 1 ? "" : "s"}
+                   </div>`}
         </div>
 
         ${(function() {
@@ -448,14 +380,11 @@ function bindReviewForm() {
             const facilityIndex = facilities.findIndex(function (f) { return f.id === selectedFacilityId; });
             if (facilityIndex !== -1) {
                 facilities[facilityIndex].userReview = result.userReview;
-
-                // Update the REAL rating values from the backend, then re-blend
-                facilities[facilityIndex].realAverageRating = Number(result.averageRating || 0);
+                facilities[facilityIndex].averageRating = Number(result.averageRating || 0);
                 if (!wasEdit) {
-                    facilities[facilityIndex].realReviewCount =
-                        (facilities[facilityIndex].realReviewCount || 0) + 1;
+                    facilities[facilityIndex].reviewCount =
+                        (facilities[facilityIndex].reviewCount || 0) + 1;
                 }
-                recomputeFacilityRating(facilities[facilityIndex]);
             }
             showMessage(wasEdit ? "Review updated successfully." : "Review submitted successfully.", "success");
             renderDetailPanel();
@@ -500,7 +429,9 @@ function renderMapMarkers() {
         marker.bindPopup(`
             <strong>${escapeHtml(facility.displayName)}</strong><br>
             ${escapeHtml(facility.address)}<br>
-            Rating: ${facility.averageRating.toFixed(1)} / 5
+            ${facility.reviewCount === 0
+                ? "No reviews yet"
+                : `Rating: ${facility.averageRating.toFixed(1)} / 5`}
         `);
 
         marker.on("click", function () {

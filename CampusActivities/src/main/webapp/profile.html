@@ -40,6 +40,11 @@
         .check-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: #992233; cursor: pointer; flex-shrink: 0; }
         .other-text-input { margin-top: 6px; width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; box-sizing: border-box; color: #333; display: none; }
 
+        .interest-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .interest-option { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: normal; color: #333; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; background: white; transition: border-color 0.15s; }
+        .interest-option:hover { border-color: #aaa; }
+        .interest-option input[type="checkbox"] { width: 16px; height: 16px; accent-color: #992233; cursor: pointer; flex-shrink: 0; }
+
         .btn-edit-profile {
             background: none; border: 1px solid #992233; color: #992233;
             padding: 6px 14px; border-radius: 6px; cursor: pointer;
@@ -133,8 +138,8 @@
 
                 <div class="sidebar-section">MAIN</div>
                 <a href="dashboard.html" class="sidebar-link">Dashboard</a>
-                <a href="activities.html" class="sidebar-link">Events</a>
-                <a href="matching.html" class="sidebar-link">My Matches</a>
+                <a href="activities.html" class="sidebar-link">Activities</a>
+                <a href="matching.html" class="sidebar-link">Matches</a>
 
                 <div class="sidebar-section">EXPLORE</div>
                 <a href="locations.html" class="sidebar-link">Facilities</a>
@@ -205,8 +210,18 @@
 
                         <form class="edit-form" id="editProfileForm" onsubmit="submitEditProfile(event)">
                             <div class="form-row">
-                                <label>Interests (comma-separated)</label>
-                                <input type="text" id="editInterests" placeholder="e.g. Basketball, Swimming, Yoga">
+                                <label>Interests</label>
+                                <div class="interest-grid">
+                                    <label class="interest-option"><input type="checkbox" class="interest-cb" value="basketball"> Basketball</label>
+                                    <label class="interest-option"><input type="checkbox" class="interest-cb" value="soccer"> Soccer</label>
+                                    <label class="interest-option"><input type="checkbox" class="interest-cb" value="volleyball"> Volleyball</label>
+                                    <label class="interest-option"><input type="checkbox" class="interest-cb" value="swimming"> Swimming</label>
+                                    <label class="interest-option"><input type="checkbox" class="interest-cb" value="running"> Running</label>
+                                    <label class="interest-option"><input type="checkbox" class="interest-cb" value="weightlifting"> Weightlifting</label>
+                                    <label class="interest-option"><input type="checkbox" class="interest-cb" value="yoga"> Yoga</label>
+                                    <label class="interest-option"><input type="checkbox" class="interest-cb" value="pilates"> Pilates</label>
+                                    <label class="interest-option"><input type="checkbox" class="interest-cb" value="mindfulness"> Mindfulness</label>
+                                </div>
                             </div>
                             <div class="form-row">
                                 <label>Skill Level</label>
